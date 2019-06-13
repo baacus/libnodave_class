@@ -60,13 +60,14 @@ namespace ConsoleApplicationSample
                                     "3: Read bit" + Environment.NewLine +
                                     "4: Write bit" + Environment.NewLine +
                                     "5: Read integers" + Environment.NewLine +
+                                    "6: Write integers" + Environment.NewLine +
                                     "Enter the number";
             string optionReq = ask_user_input(optionQuestion);
 
             LibnoDaveClass.AddressType address; LibnoDaveClass.PLCDataType dataType;
             int dbNo, byteNo, bitNo, length;
-            List<string> readByteList, writeByteList; List<double> readIntList;
-            bool readBit, writeBit;
+            List<string> readByteList, writeByteList; List<int> readIntList, writeIntList;
+            bool readBit, writeBit, isSigned;
             switch (optionReq)
             {
                 case "1":
@@ -170,20 +171,22 @@ namespace ConsoleApplicationSample
 
                 case "5":
                     string addressType5 = ask_user_input("Which address type do you want to read? (M for Memory, D for DB)");
-                    string intType = ask_user_input("Which integer type do you want to read? (B for Byte, W for Word or Integer, D for D-Integer)");
+                    string intType5 = ask_user_input("Which integer type do you want to read? (B for Byte, W for Word or Integer, D for D-Integer)");
                     string dbNumber5 = ask_user_input("Enter DB address of the registers. (0 for Memory address)");
                     string byteNumber5 = ask_user_input("Enter the starting address of the registers");
+                    string isSignedStr5 = ask_user_input("Are integer values signed (+/-) ? (y/n)");
                     string lengthNumber5 = ask_user_input("Enter the number of integers");
 
+                    isSigned = isSignedStr5 == "y" ? true : false;
                     address = addressType5 == "M" ? LibnoDaveClass.AddressType.Memory : LibnoDaveClass.AddressType.DB;
-                    dataType = intType == "B" ? LibnoDaveClass.PLCDataType.Byte :
-                               intType == "W" ? LibnoDaveClass.PLCDataType.Integer :
+                    dataType = intType5 == "B" ? LibnoDaveClass.PLCDataType.Byte :
+                               intType5 == "W" ? LibnoDaveClass.PLCDataType.Integer :
                                LibnoDaveClass.PLCDataType.DInteger;
                     int.TryParse(dbNumber5, out dbNo);
                     int.TryParse(byteNumber5, out byteNo);
                     int.TryParse(lengthNumber5, out length);
 
-                    if (libno.read_integer_values(address, dbNo, byteNo, length, out readIntList, dataType))
+                    if (libno.read_integer_values(address, dbNo, byteNo, length, out readIntList, dataType, isSigned))
                     {
                         print_message("Process is successful!");
                         print_message("Integers that were read are:");
@@ -191,6 +194,36 @@ namespace ConsoleApplicationSample
                         {
                             Console.WriteLine("Int-" + i + " is " + readIntList[i].ToString());
                         }
+                    }
+                    else
+                    {
+                        print_message("Some errors occured. Try to connect to PLC again..");
+                    }
+                    break;
+
+                case "6":
+                    string addressType6 = ask_user_input("Which address type do you want to read? (M for Memory, D for DB)");
+                    string intType6 = ask_user_input("Which integer type do you want to read? (B for Byte, W for Word or Integer, D for D-Integer)");
+                    string dbNumber6 = ask_user_input("Enter DB address of the registers. (0 for Memory address)");
+                    string byteNumber6 = ask_user_input("Enter the starting address of the registers");
+                    string isSignedStr6 = ask_user_input("Are integer values signed (+/-) ? (y/n)");
+                    string writeInts = ask_user_input("Enter int values and put ':' between integers");
+
+                    isSigned = isSignedStr6 == "y" ? true : false;
+                    address = addressType6 == "M" ? LibnoDaveClass.AddressType.Memory : LibnoDaveClass.AddressType.DB;
+                    dataType = intType6 == "B" ? LibnoDaveClass.PLCDataType.Byte :
+                               intType6 == "W" ? LibnoDaveClass.PLCDataType.Integer :
+                               LibnoDaveClass.PLCDataType.DInteger;
+                    int.TryParse(dbNumber6, out dbNo);
+                    int.TryParse(byteNumber6, out byteNo);
+
+                    List<string> writeIntStrList = writeInts.Split(':').ToList();
+                    writeIntList = new List<int>();
+                    writeIntStrList.ForEach(x => writeIntList.Add(int.Parse(x)));
+
+                    if (libno.write_integer_values(address, dbNo, byteNo, writeIntList, dataType, isSigned))
+                    {
+                        print_message("Process is successful!");
                     }
                     else
                     {
