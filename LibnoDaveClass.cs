@@ -310,13 +310,14 @@ public class LibnoDaveClass
     /// <para>Register type in PLC -> Word, Int(Integer) => PLCDataType.Int</para>
     /// <para>Register type in PLC -> DInt(DInteger) => PLCDataType.DInt</para>
     /// </param>
+    /// <param name="isSigned"> If the registers that will be read have sign, this parameter should be true.</param>
     /// <returns></returns>
-    public bool read_integer_values(AddressType aType, int dbNo, int byteNo, int length, out List<double> resultInts, PLCDataType dataType = PLCDataType.DInteger)
+    public bool read_integer_values(AddressType aType, int dbNo, int byteNo, int length, out List<int> resultInts, PLCDataType dataType = PLCDataType.DInteger, bool isSigned = true)
     {
         bool result = false;
         int resultValue = -1;
-        resultInts = new List<double>();
-        int byteNum = dataType == PLCDataType.DInteger ? 4 : (dataType == PLCDataType.Integer ? 2 : 1);
+        resultInts = new List<int>();
+        int byteNum = dataType == PLCDataType.DInteger ? 4 : dataType == PLCDataType.Integer ? 2 : 1;
         int byteLength = length * byteNum;
         byte[] valueRead = new byte[byteLength];
 
@@ -327,21 +328,24 @@ public class LibnoDaveClass
 
         int daveInt = (aType == AddressType.Memory) ? libnodave.daveFlags : libnodave.daveDB;
         int daveDB = (aType == AddressType.Memory) ? 0 : dbNo;
-        List<double> IntsRead = new List<double>();
+
+        List<int> IntsRead = new List<int>();
+        int maxValue = isSigned ? (int)Math.Pow(2, 8 * byteNum - 1) - 1 : (int)Math.Pow(2, 8 * byteNum) - 1; //signed - unsigned int
         try
         {
             resultValue = dc.readBytes(daveInt, daveDB, byteNo, byteLength, valueRead);
             bool always1Check = always_bit_check();
             if (resultValue == 0 && always1Check)
             {
-                double okunanSayi = 0;
+                int readValue = 0;
                 for (int i = 0; i < valueRead.Length; i++)
                 {
-                    okunanSayi += valueRead[i] * Math.Pow(2, 8 * ((valueRead.Length - i - 1) % byteNum));
+                    readValue += valueRead[i] * (int) Math.Pow(2, 8 * ((valueRead.Length - i - 1) % byteNum));
                     if (i % byteNum == byteNum - 1)
                     {
-                        IntsRead.Add(okunanSayi);
-                        okunanSayi = 0;
+                        int realValue = (isSigned && readValue > maxValue) ? readValue - 2 * (int)Math.Pow(2, 8 * byteNum - 1) : readValue;
+                        IntsRead.Add(realValue);
+                        readValue = 0;
                     }
                 }
                 result = true;
@@ -351,6 +355,88 @@ public class LibnoDaveClass
         catch (Exception e) { send_error_message(e, "READ INTEGER PROBLEM"); }
         return result;
     }
+
+    /// <summary>
+    /// Address type can be Memory or DB address, BUT IT CANNOT BE INPUT OR OUTPUT ADDRESS!!
+    /// It returns false at unexpected situation.
+    /// </summary>
+    /// <param name="aType">Address type of registers that will be written. AddressType is used.</param>
+    /// <param name="dbNo">DB address of registers that will be written. If Address type is Memory, this parameter value is not considered, it can be 0 for the default.</param>
+    /// <param name="byteNo">Starting byte address of registers that will be written.</param>
+    /// <param name="intList">Integer values of registers that will be written. It must be a list of integer in order.</param>
+    /// <param name="dataType">Integer type of registers that will be read. PLCDataType is used.
+    /// <para>Register type in PLC -> Byte => PLCDataType.Byte</para>
+    /// <para>Register type in PLC -> Word, Int(Integer) => PLCDataType.Int</para>
+    /// <para>Register type in PLC -> DInt(DInteger) => PLCDataType.DInt</para></param>
+    /// <param name="isSigned">If the registers that will be written have sign, this parameter should be true.</param>
+    /// <returns></returns>
+    public bool write_integer_values(AddressType aType, int dbNo, int byteNo, List<int> intList, PLCDataType dataType = PLCDataType.DInteger, bool isSigned = true)
+    {
+        bool result = false;
+        List<int> readIntList = new List<int>();
+
+        if (aType == AddressType.Input || aType == AddressType.Output)
+        {
+            throw new InvalidOperationException("Address type of registers that will be written cannot be Input or Output address type.");
+        }
+
+        if (!read_integer_values(aType, dbNo, byteNo, intList.Count, out readIntList, dataType))
+            return result;
+
+        int byteNum = dataType == PLCDataType.DInteger ? 4 : dataType == PLCDataType.Integer ? 2 : 1;
+
+        int tryCounter = 0;
+        int resultValue1 = -1;
+        int resultValue2 = -1;
+
+        int daveInt = (aType == AddressType.Memory) ? libnodave.daveFlags : libnodave.daveDB;
+        int daveDB = (aType == AddressType.Memory) ? 0 : dbNo;
+
+        byte[] byteValues = new byte[intList.Count * byteNum];
+        byte[] byteValuesRead = new byte[intList.Count * byteNum];
+        try
+        {
+            for (int i = 0; i < intList.Count; i++)
+            {
+                byte[] intToByteArr;
+                if (!convert_byte_values(intList[i], byteNum, isSigned, out intToByteArr)) return result;
+                for (int j = 0; j < byteNum; j++)
+                {
+                    byteValues[i * byteNum + j] = intToByteArr[j];
+                }
+            }
+        } catch(Exception e)
+        {
+            send_error_message(e, "WRITE INTEGER PROBLEM");
+            return result;
+        }
+
+        if (!readIntList.SequenceEqual(intList))
+        {
+            while (tryCounter < 4)
+            {
+                try
+                {
+                    resultValue1 = dc.writeBytes(daveInt, daveDB, byteNo, byteValues.Length, byteValues);
+                    resultValue2 = dc.readBytes(daveInt, daveDB, byteNo, byteValues.Length, byteValuesRead);
+                    if (byteValues.SequenceEqual(byteValuesRead) && resultValue1 == 0 && resultValue2 == 0)
+                    {
+                        result = true;
+                        return result;
+                    }
+                    else tryCounter += 1;
+                }
+                catch (Exception e)
+                {
+                    send_error_message(e, "WRITE INTEGER PROBLEM");
+                    return result;
+                }
+            }
+        }
+        else result = true;
+        return result;
+    }
+
 
     /// <summary>
     /// Address type can be Memory, Output or DB address, BUT IT CANNOT BE INPUT ADDRESS!!
@@ -479,6 +565,43 @@ public class LibnoDaveClass
         char[] resultArr = str.ToCharArray();
         Array.Reverse(resultArr);
         return new string(resultArr);
+    }
+
+    private bool convert_byte_values(int intValue, int byteLength, bool isSigned, out byte[] convertByte)
+    {
+        bool result = false;
+        convertByte = new byte[byteLength];
+        int maxValue = isSigned ? (int)Math.Pow(2, 8 * byteLength - 1) - 1 : (int) Math.Pow(2, 8 * byteLength) - 1 ; //signed - unsigned int
+        if (Math.Abs(intValue) > maxValue || (!isSigned && intValue < 0))
+        {
+            return result;
+        }
+        else if(intValue < 0)
+        {
+            convertByte[byteLength - 1] = (byte) Math.Pow(2, 7);
+        }
+        else
+        {
+            convertByte[byteLength - 1] = 0;
+        }
+        int reversedValue = intValue < 0 ? maxValue + 1 - Math.Abs(intValue) : intValue;
+
+        for (int i = byteLength - 1; i >= 0; i--)
+        {
+            if(i == byteLength - 1)
+            {
+                convertByte[i] += (byte) (reversedValue / (int) Math.Pow(2, 8 * i));
+            }
+            else
+            {
+                convertByte[i] = (byte) ((reversedValue % (int)Math.Pow(2, 8 * (i + 1))) / (int)Math.Pow(2, 8 * i));
+            }
+        }
+        Array.Reverse(convertByte);
+        result = true;
+
+        return result;
+
     }
     private void send_error_message(Exception e, string errorAddress)
     {
