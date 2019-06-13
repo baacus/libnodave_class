@@ -1,0 +1,9 @@
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\bin\Debug\ConsoleApplicationSample.exe.config
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\bin\Debug\ConsoleApplicationSample.exe
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\bin\Debug\ConsoleApplicationSample.pdb
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\bin\Debug\libnodave.net.dll
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\obj\Debug\ConsoleApplicationSample.csprojAssemblyReference.cache
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\obj\Debug\ConsoleApplicationSample.csproj.CoreCompileInputs.cache
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\obj\Debug\ConsoleApplicationSample.csproj.CopyComplete
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\obj\Debug\ConsoleApplicationSample.exe
+C:\Users\bayramy\Documents\GitHub\libnodave_class\ConsoleApplicationSample\obj\Debug\ConsoleApplicationSample.pdb
