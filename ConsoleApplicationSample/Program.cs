@@ -13,11 +13,11 @@ namespace ConsoleApplicationSample
             
             string ip = ask_user_input("What is ip address of PLC?");
             int port, slot, rack;
-            int.TryParse(ask_user_input("What is ip address of PLC? (Default 102)"), out port);
+            int.TryParse(ask_user_input("What is port address of PLC? (Default 102)"), out port);
             port = port == 0 ? 102 : port;
-            int.TryParse(ask_user_input("What is ip address of PLC? (Default 0)"), out rack);
+            int.TryParse(ask_user_input("What is rack address of PLC? (Default 0)"), out rack);
             rack = rack == 0 ? 0 : rack;
-            int.TryParse(ask_user_input("What is ip address of PLC? (Default 1)"), out slot);
+            int.TryParse(ask_user_input("What is slot address of PLC? (Default 1)"), out slot);
             slot = slot == 0 ? 1 : slot;
             string logReq = ask_user_input("Do you want to save runtime errors in C:\\LibnoDaveClass? (y/n)");
             bool logRequest = logReq == "y" ? true : false;
@@ -61,12 +61,14 @@ namespace ConsoleApplicationSample
                                     "4: Write bit" + Environment.NewLine +
                                     "5: Read integers" + Environment.NewLine +
                                     "6: Write integers" + Environment.NewLine +
+                                    "7: Read real/float values" + Environment.NewLine +
+                                    "8: Write real/float values" + Environment.NewLine +
                                     "Enter the number";
             string optionReq = ask_user_input(optionQuestion);
 
             LibnoDaveClass.AddressType address; LibnoDaveClass.PLCDataType dataType;
             int dbNo, byteNo, bitNo, length;
-            List<string> readByteList, writeByteList; List<int> readIntList, writeIntList;
+            List<string> readByteList, writeByteList; List<int> readIntList, writeIntList; List<float> readFloatList, writeFloatList;
             bool readBit, writeBit, isSigned;
             switch (optionReq)
             {
@@ -202,8 +204,8 @@ namespace ConsoleApplicationSample
                     break;
 
                 case "6":
-                    string addressType6 = ask_user_input("Which address type do you want to read? (M for Memory, D for DB)");
-                    string intType6 = ask_user_input("Which integer type do you want to read? (B for Byte, W for Word or Integer, D for D-Integer)");
+                    string addressType6 = ask_user_input("Which address type do you want to write? (M for Memory, D for DB)");
+                    string intType6 = ask_user_input("Which integer type do you want to write? (B for Byte, W for Word or Integer, D for D-Integer)");
                     string dbNumber6 = ask_user_input("Enter DB address of the registers. (0 for Memory address)");
                     string byteNumber6 = ask_user_input("Enter the starting address of the registers");
                     string isSignedStr6 = ask_user_input("Are integer values signed (+/-) ? (y/n)");
@@ -222,6 +224,56 @@ namespace ConsoleApplicationSample
                     writeIntStrList.ForEach(x => writeIntList.Add(int.Parse(x)));
 
                     if (libno.write_integer_values(address, dbNo, byteNo, writeIntList, dataType, isSigned))
+                    {
+                        print_message("Process is successful!");
+                    }
+                    else
+                    {
+                        print_message("Some errors occured. Try to connect to PLC again..");
+                    }
+                    break;
+                case "7":
+                    string addressType7 = ask_user_input("Which address type do you want to read? (M for Memory, D for DB)");
+                    string dbNumber7 = ask_user_input("Enter DB address of the registers. (0 for Memory address)");
+                    string byteNumber7 = ask_user_input("Enter the starting address of the registers");
+                    string lengthNumber7 = ask_user_input("Enter the number of real/float values");
+
+                    address = addressType7 == "M" ? LibnoDaveClass.AddressType.Memory : LibnoDaveClass.AddressType.DB;
+
+                    int.TryParse(dbNumber7, out dbNo);
+                    int.TryParse(byteNumber7, out byteNo);
+                    int.TryParse(lengthNumber7, out length);
+
+                    if (libno.read_real_values(address, dbNo, byteNo, length, out readFloatList))
+                    {
+                        print_message("Process is successful!");
+                        print_message("Float values that were read are:");
+                        for (int i = 0; i < readFloatList.Count; i++)
+                        {
+                            Console.WriteLine("Float-" + i + " is " + readFloatList[i].ToString());
+                        }
+                    }
+                    else
+                    {
+                        print_message("Some errors occured. Try to connect to PLC again..");
+                    }
+                    break;
+                case "8":
+                    string addressType8 = ask_user_input("Which address type do you want to write? (M for Memory, D for DB)");
+                    string dbNumber8 = ask_user_input("Enter DB address of the registers. (0 for Memory address)");
+                    string byteNumber8 = ask_user_input("Enter the starting address of the registers");
+                    string writeFloats = ask_user_input("Enter real/float values and put ':' between integers");
+
+                    address = addressType8 == "M" ? LibnoDaveClass.AddressType.Memory : LibnoDaveClass.AddressType.DB;
+
+                    int.TryParse(dbNumber8, out dbNo);
+                    int.TryParse(byteNumber8, out byteNo);
+
+                    List<string> writeFloatStrList = writeFloats.Split(':').ToList();
+                    writeFloatList = new List<float>();
+                    writeFloatStrList.ForEach(x => writeFloatList.Add(float.Parse(x)));
+
+                    if (libno.write_real_values(address, dbNo, byteNo, writeFloatList))
                     {
                         print_message("Process is successful!");
                     }

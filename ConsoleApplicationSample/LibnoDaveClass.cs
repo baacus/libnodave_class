@@ -302,7 +302,7 @@ public class LibnoDaveClass
     /// <param name="dbNo">DB address of registers that will be read. If Address type is Memory, this parameter value is not considered, it can be 0 for the default.</param>
     /// <param name="byteNo">Starting byte address of registers that will be read.</param>
     /// <param name="length">Number of integers that will be read.</param>
-    /// <param name="resultInts">Integer values of registers that will be read.
+    /// <param name="resultInts">List that will contain integer values of registers that are read.
     /// Each element represents each integer that is read in order.
     /// </param>
     /// <param name="dataType">Integer type of registers that will be read. PLCDataType is used.
@@ -436,7 +436,140 @@ public class LibnoDaveClass
         else result = true;
         return result;
     }
+    
+    /// <summary>
+    /// Address type can be Memory or DB address, BUT IT CANNOT BE INPUT OR OUTPUT ADDRESS!!
+    /// It returns false at unexpected situation.
+    /// </summary>
+    /// <param name="aType">Address type of registers that will be read. AddressType is used.</param>
+    /// <param name="dbNo">DB address of registers that will be read. If Address type is Memory, this parameter value is not considered, it can be 0 for the default.</param>
+    /// <param name="byteNo">Starting byte address of registers that will be read.</param>
+    /// <param name="length">Number of  that will be read.</param>
+    /// <param name="resultFloats">List that will contain float values of registers that are read.
+    /// Each element represents each float that is read in order.</param>
+    /// <returns></returns>
+    public bool read_real_values(AddressType aType, int dbNo, int byteNo, int length, out List<float> resultFloats)
+    {
+        bool result = false;
+        int resultValue = -1;
+        resultFloats = new List<float>();
+        int byteNum = 4;
+        int byteLength = length * byteNum;
+        byte[] valueRead = new byte[byteLength];
 
+        if (aType == AddressType.Input || aType == AddressType.Output)
+        {
+            throw new InvalidOperationException("Address type of registers that will be read cannot be Input or Output address type.");
+        }
+
+        int daveInt = (aType == AddressType.Memory) ? libnodave.daveFlags : libnodave.daveDB;
+        int daveDB = (aType == AddressType.Memory) ? 0 : dbNo;
+
+        List<float> floatsRead = new List<float>();
+        try
+        {
+            resultValue = dc.readBytes(daveInt, daveDB, byteNo, byteLength, valueRead);
+            bool always1Check = always_bit_check();
+            if (resultValue == 0 && always1Check)
+            {
+                for (int i = 0; i < length; i++)
+                {
+                    byte[] readBytes = new byte[byteNum];
+                    for(int j = 0; j < byteNum; j++)
+                    {
+                        readBytes[j] = valueRead[i * byteNum + j];
+                    }
+                    Array.Reverse(readBytes);
+                    float floatValue = (float) BitConverter.ToSingle(readBytes, 0);
+                    floatsRead.Add(floatValue);
+                }
+                result = true;
+                resultFloats = floatsRead.ToList();
+            }
+        }
+        catch (Exception e) { send_error_message(e, "READ FLOAT PROBLEM"); }
+        return result;
+    }
+
+    /// <summary>
+    /// Address type can be Memory or DB address, BUT IT CANNOT BE INPUT OR OUTPUT ADDRESS!!
+    /// It returns false at unexpected situation.
+    /// </summary>
+    /// <param name="aType">Address type of registers that will be written. AddressType is used.</param>
+    /// <param name="dbNo">DB address of registers that will be written. If Address type is Memory, this parameter value is not considered, it can be 0 for the default.</param>
+    /// <param name="byteNo">Starting byte address of registers that will be written.</param>
+    /// <param name="floatList">Float values of registers that will be written. It must be a list of float in order.</param>
+    /// <returns></returns>
+    public bool write_real_values(AddressType aType, int dbNo, int byteNo, List<float> floatList)
+    {
+        bool result = false;
+        List<float> readFloatList = new List<float>();
+
+        if (aType == AddressType.Input || aType == AddressType.Output)
+        {
+            throw new InvalidOperationException("Address type of registers that will be written cannot be Input or Output address type.");
+        }
+
+        if(!read_real_values(aType, dbNo, byteNo, floatList.Count, out readFloatList))
+        {
+            return result;
+        }
+
+        int byteNum = 4;
+
+        int tryCounter = 0;
+        int resultValue1 = -1;
+        int resultValue2 = -1;
+
+        int daveInt = (aType == AddressType.Memory) ? libnodave.daveFlags : libnodave.daveDB;
+        int daveDB = (aType == AddressType.Memory) ? 0 : dbNo;
+
+        byte[] byteValues = new byte[floatList.Count * byteNum];
+        byte[] byteValuesRead = new byte[floatList.Count * byteNum];
+        try
+        {
+            for (int i = 0; i < floatList.Count; i++)
+            {
+                byte[] floatToByteArr = BitConverter.GetBytes(floatList[i]);
+                Array.Reverse(floatToByteArr);
+
+                for (int j = 0; j < byteNum; j++)
+                {
+                    byteValues[i * byteNum + j] = floatToByteArr[j];
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            send_error_message(e, "WRITE FLOAT PROBLEM");
+            return result;
+        }
+
+        if (!readFloatList.SequenceEqual(floatList))
+        {
+            while (tryCounter < 4)
+            {
+                try
+                {
+                    resultValue1 = dc.writeBytes(daveInt, daveDB, byteNo, byteValues.Length, byteValues);
+                    resultValue2 = dc.readBytes(daveInt, daveDB, byteNo, byteValues.Length, byteValuesRead);
+                    if (byteValues.SequenceEqual(byteValuesRead) && resultValue1 == 0 && resultValue2 == 0)
+                    {
+                        result = true;
+                        return result;
+                    }
+                    else tryCounter += 1;
+                }
+                catch (Exception e)
+                {
+                    send_error_message(e, "WRITE FLOAT PROBLEM");
+                    return result;
+                }
+            }
+        }
+        else result = true;
+        return result;
+    }
 
     /// <summary>
     /// Address type can be Memory, Output or DB address, BUT IT CANNOT BE INPUT ADDRESS!!
